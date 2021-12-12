@@ -52,6 +52,8 @@ enum emacs_variadic_function = -2;
 
 /* Struct passed to a module init function (emacs_module_init).  */
 struct emacs_runtime {
+  @nogc nothrow:
+
   /* Structure size (for version checking).  */
   c_long size;
 
@@ -97,6 +99,8 @@ alias emacs_limb_t = c_ulong;
 enum EMACS_LIMB_MAX = SIZE_MAX;
 
 struct emacs_env_25 {
+  @nogc nothrow:
+
   /* Structure size (for version checking).  */
   c_long size;
 
@@ -182,6 +186,8 @@ struct emacs_env_25 {
 }
 
 struct emacs_env_26 {
+  @nogc nothrow:
+
   /* Structure size (for version checking).  */
   c_long size;
 
@@ -270,6 +276,8 @@ struct emacs_env_26 {
 }
 
 struct emacs_env_27 {
+  @nogc nothrow:
+
   /* Structure size (for version checking).  */
   c_long size;
 

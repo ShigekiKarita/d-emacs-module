@@ -20,7 +20,6 @@ import std.datetime.systime : Clock;
 import std.format : format;
 import std.string : fromStringz;
 
-
 private enum string dman = `
  o       o
  |        \
@@ -37,12 +36,12 @@ private enum string dman = `
 `;
 
 // Wraps elisp "message" func with dman.
-private void dman_message(T)(emacs_env* env, T arg) {
+private emacs_value dman_message(T)(emacs_env* env, T arg) {
   emacs_value func = env.intern(env, "message");
   emacs_value[1] args;
   string hello = format!dman(arg);
   args[0] = env.make_string(env, hello.ptr, hello.length);
-  env.funcall(env, func, args.length, args.ptr);
+  return env.funcall(env, func, args.length, args.ptr);
 }
 
 // Returns true if type of value is string.
@@ -57,23 +56,19 @@ int plugin_is_GPL_compatible;
 
 emacs_value dman_time(
     emacs_env* env, ptrdiff_t nargs, emacs_value* args, void* data) {
-  dman_message(env, Clock.currTime());
-  return env.intern(env, "t");
+  return dman_message(env, Clock.currTime());
 }
 
 emacs_value dman_say(
     emacs_env* env, ptrdiff_t nargs, emacs_value* args, void* data) {
   if (nargs == 1 && stringp(env, args[0])) {
-    string str;
     char[128] buf;
     ptrdiff_t size = buf.length;
     // TODO(karita): Use dynamic array and handle errors.
     env.copy_string_contents(env, args[0], buf.ptr, &size);
-    dman_message(env, fromStringz(buf));
-    return env.intern(env, "t");
+    return dman_message(env, fromStringz(buf));
   }
-  dman_message(env, "Usage: (dman-say [string])");
-  return env.intern(env, "nil");
+  return dman_message(env, "Usage: (dman-say [string])");
 }
 
 int emacs_module_init(emacs_runtime* ert) {
