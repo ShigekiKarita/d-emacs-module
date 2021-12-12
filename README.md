@@ -7,21 +7,21 @@ See [example](example) dir for its usage.
 
 ## Emacs version spec
 
-This library assumes Emacs27 but you can specify version (e.g. Emacs25, Emacs26, Emacs27) in dub.json:
+This library assumes Emacs27 but you can explicitly specify version (e.g. Emacs25, Emacs26, Emacs27) in dub.json:
 
 ```json
 {
   "name": "your-emacs-module"
   "license": "GPLv3",
   "targetType": "dynamicLibrary",
-  "versions": ["Emacs26"]
+  "versions": ["Emacs27"]
   "dependencies": {
     "d-emacs-module": "*"
   }
 }
 ```
 
-Note that only `emacs_module.deimos` supports Emacs25 and Emacs26.
+Note that except `emacs_module.deimos`, this library does NOT support Emacs25 and Emacs26.
 
 ## References
 
