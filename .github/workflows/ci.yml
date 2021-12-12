@@ -25,4 +25,4 @@ jobs:
         version: 27.2
 
     - name: 'Build & Test'
-      run: ./test.sh
+      run: bash ./test.sh
