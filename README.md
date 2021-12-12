@@ -11,7 +11,11 @@ This library assumes Emacs27 but you can specify version (e.g. Emacs25, Emacs26,
 {
   "name": "your-emacs-module"
   "license": "GPLv3",
+  "targetType": "dynamicLibrary",
   "versions": ["Emacs26"]
+  "dependencies": {
+    "d-emacs-module": "*"
+  }
 }
 ```
 
