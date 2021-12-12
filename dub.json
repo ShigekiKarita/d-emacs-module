@@ -1,0 +1,9 @@
+{
+    "authors": [
+        "karita"
+    ],
+    "copyright": "Copyright © 2021, karita",
+    "description": "Emacs dynamic modules in D",
+    "license": "GPLv3",
+    "name": "d-emacs-module"
+}
