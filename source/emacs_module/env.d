@@ -2,9 +2,9 @@ module emacs_module.env;
 
 import emacs_module.deimos;
 
-import std.string;
-import std.stdio;
-import std.traits;
+import core.stdc.stdint : intmax_t;
+import std.string : fromStringz;
+import std.traits : arity, ParameterDefaults, Parameters;
 
 /// Returns the minimum arity among func overloads within its module.
 private size_t minArity(alias fn)() {
@@ -18,7 +18,7 @@ private size_t minArity(alias fn)() {
 }
 
 /// Returns the maximum arity among func overloads within its module.
-alias maxArity = std.traits.arity;
+alias maxArity = arity;
 
 version (emacs_module_test) unittest {
     void foo(int, double, string s = "");
@@ -72,8 +72,7 @@ struct EmacsEnv {
     }
 
     return payload_.make_function(
-        payload_, minArity!func - 1, maxArity!func - 1, &wrapper,
-        doc.ptr, data);
+        payload_, minArity!func-1, maxArity!func-1, &wrapper, doc.ptr, data);
   }
 
   /// Type-safe emacs lisp "defalias".
@@ -92,14 +91,29 @@ struct EmacsEnv {
   /// Returns true if value is the given type in emacs lisp.
   @nogc nothrow
   bool isTypeOf(emacs_value value, string type) {
-    return payload_.eq(payload_, typeOf(value),
-                       payload_.intern(payload_, type.ptr));
+    return eq(typeOf(value), intern(type));
+  }
+
+  /// Returns true if the given emacs value is not nil.
+  /// TODO(karita): Test.
+  @nogc nothrow
+  bool isNotNil(emacs_value value) {
+    return payload_.is_not_nil(payload_, value);
+  }
+
+  /// Returns true if two emacs_values are equal.
+  @nogc nothrow
+  bool eq(emacs_value a, emacs_value b) {
+    return payload_.eq(payload_, a, b);
   }
 
  private:
   /// C API payload.
   emacs_env* payload_ = null;
 }
+
+/// Type conversion. These shouldn't be methods in EmacsEnv because makeFunction
+/// can wrap only `function` NOT `delegate`, which captures `this`.
 
 /// Converts the given D object to emacs_value.
 @nogc nothrow pure @safe
@@ -111,6 +125,20 @@ emacs_value toEmacsValue(T : string)(EmacsEnv env, T s) {
   return env.payload_.make_string(env.payload_, s.ptr, s.length);
 }
 
+/// ditto
+/// TODO(karita): Test.
+@nogc nothrow
+emacs_value toEmacsValue(T : intmax_t)(EmacsEnv env, T value) {
+  return env.payload_.make_integer(env.payload_, value);
+}
+
+/// ditto
+/// TODO(karita): Test.
+@nogc nothrow
+emacs_value toEmacsValue(T : double)(EmacsEnv env, T value) {
+  return env.payload_.make_float(env.payload_, value);
+}
+
 /// Converts emacs_value to the D object.
 @nogc nothrow pure @safe
 inout(emacs_value) fromEmacsValue(T: emacs_value)(
@@ -120,9 +148,28 @@ inout(emacs_value) fromEmacsValue(T: emacs_value)(
 nothrow
 string fromEmacsValue(T: string)(EmacsEnv env, emacs_value ev) {
   assert(env.isTypeOf(ev, "string"));
-  char[1024] buf;
-  ptrdiff_t size = buf.length;
-  // TODO(karita): Use dynamic array and handle errors.
+  // Ask string size.
+  ptrdiff_t size;
+  env.payload_.copy_string_contents(env.payload_, ev, null, &size);
+
+  // Copy string to new allocated buffer.
+  auto buf = new char[size];
   env.payload_.copy_string_contents(env.payload_, ev, buf.ptr, &size);
-  return fromStringz(buf).idup;
+  assert(size == buf.length);
+
+  return buf.idup;
+}
+
+/// ditto
+/// TODO(karita): Test.
+@nogc nothrow pure @safe
+intmax_t fromEmacsValue(T: intmax_t)(EmacsEnv env, emacs_value value) {
+  return env.payload_.extract_integer(env.payload_, value);
+}
+
+/// ditto
+/// TODO(karita): Test.
+@nogc nothrow pure @safe
+double fromEmacsValue(T: double)(EmacsEnv env, emacs_value value) {
+  return env.payload_.extract_float(env.payload_, value);
 }

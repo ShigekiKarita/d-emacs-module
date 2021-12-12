@@ -75,7 +75,6 @@ int emacs_module_init(emacs_runtime* ert) {
   // Validate Emacs runtime and environment.
   if (ert.size < emacs_runtime.sizeof)
     return 1;
-
   emacs_env* env = ert.get_environment(ert);
   if (env.size < emacs_env.sizeof)
     return 2;
