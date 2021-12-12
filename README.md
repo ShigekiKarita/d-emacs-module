@@ -1,5 +1,7 @@
 # d-emacs-module
 
+[![CI](https://github.com/ShigekiKarita/d-emacs-module/actions/workflows/ci.yml/badge.svg)](https://github.com/ShigekiKarita/d-emacs-module/actions/workflows/ci.yml)
+
 D binding and high-level wrappers (WIP) for Emacs dynamic modules.
 See [example](example) dir for its usage.
 
