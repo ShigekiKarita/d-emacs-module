@@ -17,12 +17,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    
-    - uses: dlang-community/setup-dlang@master
-    
+
+    - uses: dlang-community/setup-dlang@v1
+
     - uses: purcell/setup-emacs@master
       with:
         version: 27.2
-        
+
     - name: 'Build & Test'
       run: ./test.sh
