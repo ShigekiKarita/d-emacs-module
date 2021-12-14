@@ -156,6 +156,21 @@ struct EmacsEnv {
     return payload_.eq(payload_, a, b);
   }
 
+  /// Vector functions.
+  T vecGet(T)(emacs_value vec, ptrdiff_t i) {
+    return fromEmacsValue!T(this, payload_.vec_get(payload_, vec, i));
+  }
+
+  void vecSet(T)(emacs_value vec, ptrdiff_t i, T value) {
+    payload_.vec_set(payload_, vec, i, toEmacsValue(this, value));
+  }
+
+  @nogc nothrow
+  ptrdiff_t vecSize(emacs_value vec) {
+    return payload_.vec_size(payload_, vec);
+  }
+
+
  private:
   /// C API payload.
   emacs_env* payload_ = null;
@@ -164,44 +179,59 @@ struct EmacsEnv {
 /// Type conversion. These shouldn't be methods in EmacsEnv because makeFunction
 /// can wrap only `function` NOT `delegate`, which captures `this`.
 /// TODO(karita): Support embedded pointer type.
-/// TODO(karita): Support vector functions.
 
-/// Converts the given D object to emacs_value.
+/// Converts emacs_value to emacs_value.
 @nogc nothrow pure @safe
 inout(emacs_value) toEmacsValue(const(EmacsEnv) env, inout(emacs_value) value) {
   return value;
 }
 
 /// ditto
-@nogc nothrow
-emacs_value toEmacsValue(EmacsEnv env, string value) {
-  return env.payload_.make_string(env.payload_, value.ptr, value.length);
+@nogc nothrow pure @safe
+inout(emacs_value) fromEmacsValue(T: emacs_value)(
+    const(EmacsEnv) env, inout(emacs_value) value) { return value;
 }
 
-/// ditto
+/// Converts intmax_t to emacs_value.
 @nogc nothrow
 emacs_value toEmacsValue(EmacsEnv env, intmax_t value) {
   return env.payload_.make_integer(env.payload_, value);
 }
 
-/// ditto
+/// Converts emacs_value to intmax_t.
+intmax_t fromEmacsValue(T: intmax_t)(EmacsEnv env, emacs_value value) {
+  return env.payload_.extract_integer(env.payload_, value);
+}
+
+/// Converts double to emacs_value.
 @nogc nothrow
 emacs_value toEmacsValue(EmacsEnv env, double value) {
   return env.payload_.make_float(env.payload_, value);
 }
 
-/// ditto
+/// Converts emacs_value to double.
+double fromEmacsValue(T: double)(EmacsEnv env, emacs_value value) {
+  return env.payload_.extract_float(env.payload_, value);
+}
+
+/// Converts bool to emacs_value.
 @nogc nothrow
 emacs_value toEmacsValue(EmacsEnv env, bool value) {
   return env.intern(value ? "t" : "nil");
 }
 
-/// Converts emacs_value to the D object.
-@nogc nothrow pure @safe
-inout(emacs_value) fromEmacsValue(T: emacs_value)(
-    const(EmacsEnv) env, inout(emacs_value) value) { return value; }
+/// Converts emacs_value to bool. Note that all non-nil values are true.
+bool fromEmacsValue(T: bool)(EmacsEnv env, emacs_value value) {
+  return env.isNotNil(value);
+}
 
-/// ditto
+/// Converts emacs_value to string.
+@nogc nothrow
+emacs_value toEmacsValue(EmacsEnv env, string value) {
+  return env.payload_.make_string(env.payload_, value.ptr, value.length);
+}
+
+/// Converts string to emacs_value.
 string fromEmacsValue(T: string)(EmacsEnv env, emacs_value ev) {
   // Ask string size.
   ptrdiff_t size;
@@ -217,17 +247,36 @@ string fromEmacsValue(T: string)(EmacsEnv env, emacs_value ev) {
   return buf.idup[0 .. size - 1];
 }
 
-/// ditto
-intmax_t fromEmacsValue(T: intmax_t)(EmacsEnv env, emacs_value value) {
-  return env.payload_.extract_integer(env.payload_, value);
+/// Emacs vector type.
+struct EmacsVec(T = emacs_value) {
+  /// Gets a value at the given index.
+  T opIndex(ptrdiff_t i) { return env.vecGet!T(vec, i); }
+
+  /// Sets a value at the given index.
+  T opIndexAssign(T value, ptrdiff_t i) {
+    env.vecSet(vec, i, value);
+    return value;
+  }
+
+  /// Returns the length of the vector.
+  @nogc nothrow
+  ptrdiff_t length() { return env.vecSize(vec); }
+
+  /// ditto
+  ptrdiff_t opDollar(size_t dim : 0)() { return length; }
+
+ private:
+  emacs_value vec;
+  EmacsEnv env;
 }
 
-/// ditto
-double fromEmacsValue(T: double)(EmacsEnv env, emacs_value value) {
-  return env.payload_.extract_float(env.payload_, value);
+/// Converts EmacsVec!T to emacs_value.
+@nogc nothrow
+emacs_value toEmacsValue(V : EmacsVec!T, T)(const(EmacsEnv) env, V value) {
+  return value.vec;
 }
 
-/// ditto. Note that all non-nil values are true.
-bool fromEmacsValue(T: bool)(EmacsEnv env, emacs_value value) {
-  return env.isNotNil(value);
+/// Converts emacs_value to EmacsVec!T.
+EmacsVec!T fromEmacsValue(V : EmacsVec!T, T)(EmacsEnv env, emacs_value value) {
+  return EmacsVec!T(value, env);
 }
