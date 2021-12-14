@@ -39,7 +39,6 @@ private emacs_value dmanMessage(T)(EmacsEnv env, T arg) {
 emacs_value dmanTime(EmacsEnv e) { return dmanMessage(e, Clock.currTime()); }
 emacs_value dmanSay(EmacsEnv e, string s) { return dmanMessage(e, s); }
 
-// Functions bellow are exported to emacs.
 extern (C):
 
 int plugin_is_GPL_compatible;
@@ -52,6 +51,7 @@ int emacs_module_init(emacs_runtime* ert) {
   if (!env.ok) return 2;
 
   // Initialize D runtime.
+  // TODO(karita): Call Runtime.terminate() by emacs_env.set_user_finalizer API.
   Runtime.initialize();
   dmanSay(env, "Hello Emacs from D!!");
 

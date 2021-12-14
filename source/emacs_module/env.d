@@ -21,9 +21,16 @@ private size_t minArity(alias fn)() {
 alias maxArity = arity;
 
 version (emacs_module_test) unittest {
-    void foo(int, double, string s = "");
-    static assert(maxArity!foo == 3);
-    static assert(minArity!foo == 2);
+  void foo(int, double, string s = "");
+  static assert(maxArity!foo == 3);
+  static assert(minArity!foo == 2);
+}
+
+/// Return value of EmacsEnv.nonLocalExit.
+struct NonLocalExit {
+  emacs_value symbol;
+  emacs_value data;
+  emacs_funcall_exit kind;
 }
 
 /// High-level wrapper type for emacs_env;
@@ -32,6 +39,49 @@ struct EmacsEnv {
   @nogc nothrow pure @safe
   bool ok() const {
     return payload_ !is null && payload_.size >= emacs_env.sizeof;
+  }
+
+  /// Memory management.
+  /// TODO(karita): Test.
+
+  @nogc nothrow
+  emacs_value makeGlobalRef(emacs_value reference) {
+    return payload_.make_global_ref(payload_, reference);
+  }
+
+  @nogc nothrow
+  void freeGlobalRef(emacs_value reference) {
+    payload_.free_global_ref(payload_, reference);
+  }
+
+  /// Non-local exit handling.
+  // TODO(karita): Test.
+
+  @nogc nothrow
+  emacs_funcall_exit nonLocalExitCheck() {
+    return payload_.non_local_exit_check(payload_);
+  }
+
+  @nogc nothrow
+  void nonLocalExitClear() {
+    payload_.non_local_exit_clear(payload_);
+  }
+
+  @nogc nothrow
+  NonLocalExit nonLocalExit() {
+    NonLocalExit ret;
+    ret.kind = payload_.non_local_exit_get(payload_, &ret.symbol, &ret.data);
+    return ret;
+  }
+
+  @nogc nothrow
+  void nonLocalExitSignal(emacs_value symbol, emacs_value data) {
+    payload_.non_local_exit_signal(payload_, symbol, data);
+  }
+
+  @nogc nothrow
+  void nonLocalExitThrow(emacs_value tag, emacs_value value) {
+    payload_.non_local_exit_throw(payload_, tag, value);
   }
 
   /// Returns emacs lisp symbol by the given name.
@@ -95,7 +145,6 @@ struct EmacsEnv {
   }
 
   /// Returns true if the given emacs value is not nil.
-  /// TODO(karita): Test.
   @nogc nothrow
   bool isNotNil(emacs_value value) {
     return payload_.is_not_nil(payload_, value);
@@ -114,62 +163,71 @@ struct EmacsEnv {
 
 /// Type conversion. These shouldn't be methods in EmacsEnv because makeFunction
 /// can wrap only `function` NOT `delegate`, which captures `this`.
+/// TODO(karita): Support embedded pointer type.
+/// TODO(karita): Support vector functions.
 
 /// Converts the given D object to emacs_value.
 @nogc nothrow pure @safe
-emacs_value toEmacsValue(EmacsEnv, emacs_value ev) { return ev; }
-
-/// ditto
-@nogc nothrow
-emacs_value toEmacsValue(T : string)(EmacsEnv env, T s) {
-  return env.payload_.make_string(env.payload_, s.ptr, s.length);
+inout(emacs_value) toEmacsValue(const(EmacsEnv) env, inout(emacs_value) value) {
+  return value;
 }
 
 /// ditto
-/// TODO(karita): Test.
 @nogc nothrow
-emacs_value toEmacsValue(T : intmax_t)(EmacsEnv env, T value) {
+emacs_value toEmacsValue(EmacsEnv env, string value) {
+  return env.payload_.make_string(env.payload_, value.ptr, value.length);
+}
+
+/// ditto
+@nogc nothrow
+emacs_value toEmacsValue(EmacsEnv env, intmax_t value) {
   return env.payload_.make_integer(env.payload_, value);
 }
 
 /// ditto
-/// TODO(karita): Test.
 @nogc nothrow
-emacs_value toEmacsValue(T : double)(EmacsEnv env, T value) {
+emacs_value toEmacsValue(EmacsEnv env, double value) {
   return env.payload_.make_float(env.payload_, value);
+}
+
+/// ditto
+@nogc nothrow
+emacs_value toEmacsValue(EmacsEnv env, bool value) {
+  return env.intern(value ? "t" : "nil");
 }
 
 /// Converts emacs_value to the D object.
 @nogc nothrow pure @safe
 inout(emacs_value) fromEmacsValue(T: emacs_value)(
-    EmacsEnv, inout(emacs_value) ev) { return ev; }
+    const(EmacsEnv) env, inout(emacs_value) value) { return value; }
 
 /// ditto
-nothrow
 string fromEmacsValue(T: string)(EmacsEnv env, emacs_value ev) {
-  assert(env.isTypeOf(ev, "string"));
   // Ask string size.
   ptrdiff_t size;
   env.payload_.copy_string_contents(env.payload_, ev, null, &size);
+  if (size == 0) return "";
 
   // Copy string to new allocated buffer.
   auto buf = new char[size];
   env.payload_.copy_string_contents(env.payload_, ev, buf.ptr, &size);
   assert(size == buf.length);
 
-  return buf.idup;
+  // Omit the last NULL byte.
+  return buf.idup[0 .. size - 1];
 }
 
 /// ditto
-/// TODO(karita): Test.
-@nogc nothrow pure @safe
 intmax_t fromEmacsValue(T: intmax_t)(EmacsEnv env, emacs_value value) {
   return env.payload_.extract_integer(env.payload_, value);
 }
 
 /// ditto
-/// TODO(karita): Test.
-@nogc nothrow pure @safe
 double fromEmacsValue(T: double)(EmacsEnv env, emacs_value value) {
   return env.payload_.extract_float(env.payload_, value);
+}
+
+/// ditto. Note that all non-nil values are true.
+bool fromEmacsValue(T: bool)(EmacsEnv env, emacs_value value) {
+  return env.isNotNil(value);
 }
